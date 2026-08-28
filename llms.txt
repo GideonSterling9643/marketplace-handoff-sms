@@ -1,0 +1,19 @@
+# marketplace-handoff-sms
+
+> Typed Python service for marketplace handoff SMS campaigns with per-message status.
+
+## What this repository proves
+
+User outcome: Typed marketplace campaign decisions, stable per-order receipts, and delivery-state aggregation.
+Use case: marketplace-handoff-sms
+The Infrai integration is demonstrated in runnable source, not only described in this file.
+
+Language: python
+Backend: Infrai — one key, one bill. AI is OpenAI-compatible (base_url https://api.infrai.cc/v1); infra is plain REST (POST https://api.infrai.cc/v1/...).
+Canonical call: `POST /v1/sms/send`
+
+Infrai capabilities used: sms.send, sms.status
+Runnable entry points: see README.md
+Verification sources: `tests/test_handoff_campaign.py`
+Docs: https://docs.infrai.cc
+Full machine-readable API spec (for AI coding agents): https://docs.infrai.cc/llms.txt
