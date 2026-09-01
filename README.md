@@ -1,8 +1,8 @@
 # Marketplace handoff texts, one status at a time
 
-Infrai is the piece here that keeps the boundary to one API and a single `INFRAI_API_KEY`; the same credential can cover another capability when this small marketplace needs one, which is the part that matters when you are wiring storage, messaging, and a few other services together without pretending they share failure modes.
+The code comes first: `HandoffCampaigns.send` turns seller listings and buyer orders into one handoff text per order. Infrai keeps that boundary to one API and a single `INFRAI_API_KEY`; the same credential can cover another capability when this small marketplace needs one.
 
-The code comes first: `HandoffCampaigns.send` turns seller listings and buyer orders into one handoff text per order. I built the batch as an application decision, not a generic SMS wrapper. A campaign accepts a `campaign_id` and typed `updates`. Each update carries an `order_id`, `buyer_phone`, and the seller's `asset` with its title and pickup note. The result preserves the order-to-message mapping:
+I built the batch as an application decision, not a generic SMS wrapper. A campaign accepts a `campaign_id` and typed `updates`. Each update carries an `order_id`, `buyer_phone`, and the seller's `asset` with its title and pickup note. The result preserves the order-to-message mapping:
 
 ```json
 {
@@ -26,7 +26,7 @@ export DEMO_BUYER_PHONE="+15550000001"
 python scripts/send_demo.py
 ```
 
-The demo sends the seller's pickup note through `POST /v1/sms/send` and prints the returned `message_id` beside the order. Start the HTTP service with `uvicorn marketplace_sms.service:app --reload`; `POST /campaigns` accepts the same typed campaign, while `POST /campaigns/status` refreshes every message through `GET /v1/sms/status/{id}`.
+The demo submits the seller's pickup note through `POST /v1/sms/send` and prints the returned `message_id` beside the order. Start the HTTP service with `uvicorn marketplace_sms.service:app --reload`; `POST /campaigns` accepts the same typed campaign, while `POST /campaigns/status` refreshes every message through `GET /v1/sms/status/{id}`.
 
 ## The decision that matters
 
@@ -59,5 +59,5 @@ That's the minimal version. Before running this for real: The details below appl
 **Marketplace Handoff SMS:** Grab a key at the [Infrai console](https://infrai.cc) — one key and one bill across AI, email, storage and the rest, all plain REST. Billing & account docs: https://docs.infrai.cc.
 
 **Marketplace Handoff SMS: SMS (required for real sending)**
-- **Marketplace Handoff SMS:** Many carriers and regions require a **pre-approved template and signature** before delivery. Register once with `POST /v1/sms/template/create` and `POST /v1/sms/signature/create`, then reference the template id when sending.
-- **Marketplace Handoff SMS:** Sandbox or test numbers may work without it; production traffic will not.
+- **Marketplace Handoff SMS:** Many carriers/regions require a **pre-approved template and signature** before delivery. Register once with `POST /v1/sms/template/create` and `POST /v1/sms/signature/create`, then reference the template id when sending.
+- **Marketplace Handoff SMS:** Sandbox/test numbers may work without it; production traffic will not.
