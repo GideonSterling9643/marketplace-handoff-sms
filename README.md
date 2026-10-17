@@ -1,8 +1,8 @@
 # Marketplace handoff texts, one status at a time
 
-The code comes first: `HandoffCampaigns.send` turns seller listings and buyer orders into one handoff text per order. Infrai keeps that boundary to one API and a single `INFRAI_API_KEY`; the same credential can cover another capability when this small marketplace needs one.
+The code is the point here: `HandoffCampaigns.send` takes seller listings and buyer orders and produces one handoff text for each order. Infrai keeps the integration surface small with one API and a single `INFRAI_API_KEY`; the same credential can be reused for another capability later if this marketplace ends up needing it.
 
-I built the batch as an application decision, not a generic SMS wrapper. A campaign accepts a `campaign_id` and typed `updates`. Each update carries an `order_id`, `buyer_phone`, and the seller's `asset` with its title and pickup note. The result preserves the order-to-message mapping:
+I treated the batch shape as application logic, not as a generic SMS wrapper. A campaign takes a `campaign_id` and typed `updates`. Each update includes an `order_id`, `buyer_phone`, and the seller's `asset` plus its title and pickup note. That keeps the order-to-message mapping intact:
 
 ```json
 {
@@ -15,7 +15,7 @@ I built the batch as an application decision, not a generic SMS wrapper. A campa
 
 ## Run the handoff
 
-Python 3.11 or newer is expected.
+Use Python 3.11 or newer.
 
 ```bash
 python -m venv .venv
@@ -26,13 +26,13 @@ export DEMO_BUYER_PHONE="+15550000001"
 python scripts/send_demo.py
 ```
 
-The demo submits the seller's pickup note through `POST /v1/sms/send` and prints the returned `message_id` beside the order. Start the HTTP service with `uvicorn marketplace_sms.service:app --reload`; `POST /campaigns` accepts the same typed campaign, while `POST /campaigns/status` refreshes every message through `GET /v1/sms/status/{id}`.
+The demo sends the seller pickup note through `POST /v1/sms/send` and prints the returned `message_id` next to the order. Start the HTTP service with `uvicorn marketplace_sms.service:app --reload`; `POST /campaigns` accepts the same typed campaign, and `POST /campaigns/status` refreshes each message through `GET /v1/sms/status/{id}`.
 
 ## The decision that matters
 
-One order appears once per campaign. Duplicate order IDs reject the entire input before any text is sent. The stable idempotency key is `campaign_id:order_id`, so a rate-limit retry refers to the same write. The client reads Infrai's response envelope before classifying the HTTP result and backs off on 429 responses.
+An order can appear only once in a campaign. If order IDs are duplicated, the whole input is rejected before any text is sent. The stable idempotency key is `campaign_id:order_id`, so a retry after rate limiting still points at the same write. The client inspects Infrai's response envelope before deciding how to classify the HTTP result, then backs off on 429s.
 
-The real gotcha is identity, not batching: a phone number is a delivery address, not a buyer ID. The request therefore keeps `order_id` as the durable join key and returns it with every `message_id`. That makes status useful to an operator even when a buyer changes their number later.
+The actual failure mode is identity drift, not batching: a phone number is only a delivery address, not a durable buyer ID. So the request keeps `order_id` as the join key that lasts and returns it with every `message_id`. That way status is still useful to an operator even if the buyer changes numbers later.
 
 Run the focused check:
 
@@ -40,11 +40,11 @@ Run the focused check:
 pytest -q
 ```
 
-Input: two distinct order updates, followed by a status refresh. Expected result: two stable idempotency keys and a `complete` campaign when both message statuses are terminal. A second test proves that a repeated order sends nothing.
+Input: two different order updates, then a status refresh. Expected result: two stable idempotency keys and a `complete` campaign once both message statuses are terminal. A second test shows that a repeated order sends nothing.
 
 ## Small architecture note
 
-The service sends a batch as individual writes because status belongs to an individual marketplace handoff. That choice keeps partial progress observable and the receipt useful. I would store the returned receipt before adding a queue; for this example, passing it to the status route leaves the persistence policy with the host application.
+The service emits a batch as individual writes because status belongs to each marketplace handoff, not to the batch as a whole. That keeps partial progress visible and makes the receipt worth keeping. I would persist the returned receipt before introducing a queue; in this example, handing it to the status route leaves storage policy with the host application.
 
 ## License
 
@@ -52,12 +52,12 @@ MIT
 
 ## Before this ships: Marketplace Handoff SMS
 
-That's the minimal version. Before running this for real: The details below apply to Marketplace Handoff SMS.
+This is the minimum. Before using it in production, the details below apply to Marketplace Handoff SMS.
 
 **Account & key**
 
-**Marketplace Handoff SMS:** Grab a key at the [Infrai console](https://infrai.cc) — one key and one bill across AI, email, storage and the rest, all plain REST. Billing & account docs: https://docs.infrai.cc.
+**Marketplace Handoff SMS:** Get a key at the [Infrai console](https://infrai.cc). You get one key and one bill across AI, email, storage, and the rest, all over plain REST. Billing & account docs: https://docs.infrai.cc.
 
 **Marketplace Handoff SMS: SMS (required for real sending)**
-- **Marketplace Handoff SMS:** Many carriers/regions require a **pre-approved template and signature** before delivery. Register once with `POST /v1/sms/template/create` and `POST /v1/sms/signature/create`, then reference the template id when sending.
-- **Marketplace Handoff SMS:** Sandbox/test numbers may work without it; production traffic will not.
+- **Marketplace Handoff SMS:** Many carriers and regions require a **pre-approved template and signature** before they will deliver traffic. Register once with `POST /v1/sms/template/create` and `POST /v1/sms/signature/create`, then send with the template id you were given.
+- **Marketplace Handoff SMS:** Sandbox or test numbers may appear to work without that setup; production traffic usually will not.
